@@ -542,14 +542,8 @@ class DocumentParser:
         text_len = len(text)
         start = 0
         index = 0
-        previous_start = -1  # Track previous start to detect infinite loops
 
         while start < text_len:
-            # Safety: detect infinite loop (start not progressing)
-            if start <= previous_start:
-                break
-            previous_start = start
-
             # Calculate end position
             end = min(start + self.chunk_size, text_len)
 
@@ -565,6 +559,10 @@ class DocumentParser:
                     if last_break != -1:
                         end = break_zone_start + last_break + len(pattern)
                         break
+
+            # Ensure we always make forward progress
+            if end <= start:
+                end = start + 1
 
             chunk_content = text[start:end].strip()
 
@@ -583,10 +581,9 @@ class DocumentParser:
                 index += 1
 
             # Move start position with overlap
-            # Ensure we always make forward progress
             new_start = end - self.chunk_overlap
 
-            # If overlap would cause no progress, just move to end
+            # Ensure forward progress - if overlap would cause backtracking to same position or before, just advance
             if new_start <= start:
                 start = end
             else:
