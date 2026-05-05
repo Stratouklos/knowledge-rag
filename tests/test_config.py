@@ -74,6 +74,18 @@ def test_models_cache_dir_exists():
     assert config.models_cache_dir.exists()
 
 
+def test_venv_project_dir_uses_unresolved_executable(monkeypatch):
+    """Venv detection must survive python symlinks that resolve to system Python."""
+    from pathlib import Path
+
+    import mcp_server.config as config_module
+
+    monkeypatch.setattr(config_module.sys, "prefix", "/usr")
+    monkeypatch.setattr(config_module.sys, "executable", "/opt/knowledge-rag/venv/bin/python")
+
+    assert config_module._venv_project_dir() == Path("/opt/knowledge-rag")
+
+
 def test_exclude_patterns_default_empty():
     """Default exclude_patterns must be an empty list."""
     assert hasattr(config, "exclude_patterns")
@@ -85,3 +97,17 @@ def test_ipynb_in_supported_suffixes():
     from mcp_server.config import _SUPPORTED_SUFFIXES
 
     assert ".ipynb" in _SUPPORTED_SUFFIXES
+
+
+def test_new_code_formats_in_supported_suffixes():
+    """New code formats must be in _SUPPORTED_SUFFIXES for directory detection."""
+    from mcp_server.config import _SUPPORTED_SUFFIXES
+
+    for ext in [".c", ".h", ".cpp", ".js", ".jsx", ".ts", ".tsx", ".xml"]:
+        assert ext in _SUPPORTED_SUFFIXES, f"{ext} missing from _SUPPORTED_SUFFIXES"
+
+
+def test_new_code_formats_default_enabled():
+    """New code formats must be in default supported_formats (not opt-in)."""
+    for ext in [".c", ".h", ".cpp", ".js", ".jsx", ".ts", ".tsx", ".xml"]:
+        assert ext in config.supported_formats, f"{ext} missing from supported_formats defaults"

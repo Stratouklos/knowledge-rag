@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "knowledge-rag"
-version = "3.5.2"
-description = "Local RAG System for Claude Code — Hybrid search + Cross-encoder Reranking + 12 MCP Tools. Zero external servers."
+version = "3.7.0"
+description = "Local RAG System for Claude Code — Hybrid search + Cross-encoder Reranking + 12 MCP Tools + 20 Format Parsers. Zero external servers."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
@@ -34,7 +34,7 @@ dependencies = [
     "fastembed[reranking]>=0.4.0",
     "mcp>=1.0.0",
     "rank-bm25>=0.2.2",
-    "requests>=2.31.0",
+    "requests>=2.33.0",
     "beautifulsoup4>=4.12.0",
     "python-docx>=1.0.0",
     "openpyxl>=3.1.0",
@@ -54,6 +54,7 @@ Changelog = "https://github.com/lyonzin/knowledge-rag/releases"
 
 [project.scripts]
 knowledge-rag = "mcp_server.server:main"
+knowledge-rag-guarded = "mcp_server.guarded:guarded_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]

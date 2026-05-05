@@ -16,7 +16,28 @@ import yaml
 _source_dir = Path(__file__).parent.parent
 
 
-_SUPPORTED_SUFFIXES = frozenset([".md", ".txt", ".pdf", ".py", ".json", ".docx", ".xlsx", ".pptx", ".csv", ".ipynb"])
+_SUPPORTED_SUFFIXES = frozenset(
+    [
+        ".md",
+        ".txt",
+        ".pdf",
+        ".py",
+        ".c",
+        ".h",
+        ".cpp",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".json",
+        ".xml",
+        ".docx",
+        ".xlsx",
+        ".pptx",
+        ".csv",
+        ".ipynb",
+    ]
+)
 
 
 def _has_documents(path: Path) -> bool:
@@ -33,10 +54,11 @@ def _has_documents(path: Path) -> bool:
 
 def _venv_project_dir():
     """Detect project root from venv location (pip install from PyPI)."""
-    exe = Path(sys.executable).resolve()
-    for parent in exe.parents:
-        if parent.name in ("venv", ".venv", "env", ".env"):
-            return parent.parent
+    candidates = [Path(sys.prefix), Path(sys.executable), Path(sys.executable).resolve()]
+    for candidate in candidates:
+        for parent in (candidate, *candidate.parents):
+            if parent.name in ("venv", ".venv", "env", ".env"):
+                return parent.parent
     return None
 
 
@@ -457,7 +479,26 @@ class Config:
         default_factory=lambda: _get(
             "documents",
             "supported_formats",
-            [".md", ".txt", ".pdf", ".py", ".json", ".docx", ".xlsx", ".pptx", ".csv", ".ipynb"],
+            [
+                ".md",
+                ".txt",
+                ".pdf",
+                ".py",
+                ".c",
+                ".h",
+                ".cpp",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".json",
+                ".xml",
+                ".docx",
+                ".xlsx",
+                ".pptx",
+                ".csv",
+                ".ipynb",
+            ],
         )
     )
 
@@ -510,7 +551,26 @@ class Config:
             self.reranker_top_k_multiplier = 3
         if not isinstance(self.supported_formats, list) or not self.supported_formats:
             print("[WARN] supported_formats is empty or invalid, using defaults")
-            self.supported_formats = [".md", ".txt", ".pdf", ".py", ".json", ".docx", ".xlsx", ".pptx", ".csv"]
+            self.supported_formats = [
+                ".md",
+                ".txt",
+                ".pdf",
+                ".py",
+                ".c",
+                ".h",
+                ".cpp",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".json",
+                ".xml",
+                ".docx",
+                ".xlsx",
+                ".pptx",
+                ".csv",
+                ".ipynb",
+            ]
 
         # Validate exclude_patterns is a list of strings
         if not isinstance(self.exclude_patterns, list):

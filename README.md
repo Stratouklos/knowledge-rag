@@ -2,7 +2,9 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.5.2-blue.svg)
+[![PyPI](https://img.shields.io/pypi/v/knowledge-rag)](https://pypi.org/project/knowledge-rag/)
+[![NPM](https://img.shields.io/npm/v/knowledge-rag)](https://www.npmjs.com/package/knowledge-rag)
+[![Downloads](https://static.pepy.tech/badge/knowledge-rag/month)](https://pepy.tech/project/knowledge-rag)
 ![Python](https://img.shields.io/badge/python-3.11%2B-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -10,7 +12,6 @@
 [![CI](https://github.com/lyonzin/knowledge-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/lyonzin/knowledge-rag/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/lyonzin/knowledge-rag/actions/workflows/security.yml/badge.svg)](https://github.com/lyonzin/knowledge-rag/actions/workflows/security.yml)
 [![Glama Score](https://glama.ai/mcp/servers/lyonzin/knowledge-rag/badges/score.svg)](https://glama.ai/mcp/servers/lyonzin/knowledge-rag)
-[![PyPI](https://img.shields.io/pypi/v/knowledge-rag)](https://pypi.org/project/knowledge-rag/)
 
 ### Your docs, your machine, zero cloud. Claude Code searches them natively.
 
@@ -24,45 +25,35 @@ pip install knowledge-rag → restart Claude Code → search_knowledge("your que
 
 ---
 
-**12 MCP Tools** | **Hybrid Search + Reranking** | **12 File Formats** | **Optional NVIDIA GPU** | **100% Local**
+**12 MCP Tools** | **Hybrid Search + Reranking** | **20 File Formats** | **Optional NVIDIA GPU** | **100% Local**
 
-[What's New](#whats-new-in-v352) | [Supported Formats](#supported-formats) | [Installation](#installation) | [Configuration](#configuration) | [API Reference](#api-reference) | [Architecture](#architecture)
+[What's New](#whats-new-in-v360) | [Supported Formats](#supported-formats) | [Installation](#installation) | [Configuration](#configuration) | [API Reference](#api-reference) | [Architecture](#architecture)
 
 </div>
 
 ---
 
-## What's New in v3.5.2
+## What's New in v3.6.0
 
-### GPU-Accelerated Embeddings (Optional)
+### Multi-Language Code Parsing
 
-ONNX embeddings can run on NVIDIA GPUs for **5-10x faster indexing**. Opt-in — CPU remains the default.
+Language-aware extraction for **C**, **C++**, **JavaScript**, **TypeScript**, and **XML** — functions, classes, structs, interfaces, imports, and namespaces are captured as searchable metadata. Total supported formats: **20**.
+
+### 5 Ways to Install
 
 ```bash
-# NVIDIA GPU (requires CUDA 12.x drivers)
-pip install knowledge-rag[gpu]
-
-# Also install CUDA 12 runtime libraries (if not using CUDA Toolkit 12.x)
-pip install nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-cuda-runtime-cu12
+npx -y knowledge-rag                    # NPM — zero setup, auto-manages Python venv
+pip install knowledge-rag               # PyPI — classic Python install
+curl -fsSL .../install.sh | bash        # One-line installer (Linux/macOS/Windows)
+docker pull ghcr.io/lyonzin/knowledge-rag  # Docker — models pre-downloaded
+git clone ... && pip install -r ...     # From source
 ```
 
-```yaml
-# config.yaml
-models:
-  embedding:
-    gpu: true   # Automatic CPU fallback if CUDA is unavailable
-```
-
-**How it works:**
-- Sets `CUDAExecutionProvider` as primary, `CPUExecutionProvider` as fallback
-- Auto-discovers CUDA 12 DLLs from pip-installed NVIDIA packages (no manual PATH config)
-- If GPU init fails for any reason, falls back to CPU silently with a `[WARN]` log
-- `gpu: false` (default) forces CPU-only mode — zero CUDA overhead, clean logs
-
-Ideal for large knowledge bases (1000+ documents) where full rebuilds take minutes on CPU. After the initial index, incremental reindexing (`force: true`) takes seconds regardless.
+All methods produce the same MCP server. See [Installation](#installation) for full instructions.
 
 ### Recent Highlights
 
+- **v3.6.0** — Multi-language code parsing (C/C++/JS/TS/XML), NPM wrapper, Docker image, automated release pipeline
 - **v3.5.2** — CUDA DLL auto-discovery from pip packages, graceful GPU→CPU fallback, explicit CPU provider (no CUDA noise when `gpu: false`), BASE_DIR resolution fix for editable installs
 - **v3.5.1** — Remove Python `<3.13` upper bound — 3.13 and 3.14 now supported
 - **v3.5.0** — Optional GPU acceleration, supported formats table, full README rewrite
@@ -87,6 +78,14 @@ See [Changelog](#changelog) for full history.
 | Excel | `.xlsx` | openpyxl | Yes | Sheet-by-sheet extraction |
 | PowerPoint | `.pptx` | python-pptx | Yes | Slide-by-slide extraction |
 | Jupyter Notebook | `.ipynb` | Cell-aware parser | Yes | Markdown + code cells only, no outputs/base64 |
+| C Source | `.c` | Code-aware parser | Yes | Functions/structs/includes extracted |
+| C/C++ Header | `.h` | Code-aware parser | Yes | Function declarations/structs extracted |
+| C++ Source | `.cpp` | Code-aware parser | Yes | Classes/structs/includes extracted |
+| JavaScript | `.js` | Code-aware parser | Yes | Functions/classes/imports (ESM + CJS) |
+| React JSX | `.jsx` | Code-aware parser | Yes | Same as JS parser |
+| TypeScript | `.ts` | Code-aware parser | Yes | Functions/classes/interfaces/enums/imports |
+| React TSX | `.tsx` | Code-aware parser | Yes | Same as TS parser |
+| XML | `.xml` | XML parser | Yes | Root element and namespace extraction |
 | MQL4 Header | `.mqh` | Code parser | No | MetaTrader — add to `supported_formats` to enable |
 | MQL4 Source | `.mq4` | Code parser | No | MetaTrader — add to `supported_formats` to enable |
 
@@ -106,7 +105,7 @@ See [Changelog](#changelog) for full history.
 | **Markdown-Aware Chunking** | `.md` files split by `##`/`###` sections instead of fixed windows |
 | **In-Process Embeddings** | FastEmbed ONNX Runtime (BAAI/bge-small-en-v1.5, 384D) |
 | **Keyword Routing** | Word-boundary aware routing for domain-specific queries |
-| **12 Format Parsers** | MD, TXT, PDF, PY, JSON, CSV, DOCX, XLSX, PPTX, IPYNB + opt-in MQH/MQ4 |
+| **20 Format Parsers** | MD, TXT, PDF, PY, C, H, CPP, JS, JSX, TS, TSX, JSON, XML, CSV, DOCX, XLSX, PPTX, IPYNB + opt-in MQH/MQ4 |
 | **Category Organization** | Organize docs by folder, auto-tagged by path |
 | **Incremental Indexing** | Change detection via mtime/size — only re-indexes modified files |
 | **Chunk Deduplication** | SHA256 content hashing prevents duplicate chunks |
@@ -164,7 +163,7 @@ flowchart TB
     end
 
     subgraph INGEST["DOCUMENT INGESTION"]
-        PARSERS["12 Parsers<br/>MD | PDF | TXT | PY | JSON | CSV<br/>DOCX | XLSX | PPTX | IPYNB | MQH | MQ4"]
+        PARSERS["20 Parsers<br/>MD | PDF | TXT | PY | C | H | CPP | JS | JSX | TS | TSX | JSON | XML | CSV<br/>DOCX | XLSX | PPTX | IPYNB | MQH | MQ4"]
         CHUNKER["Chunking<br/>MD: section-aware<br/>Other: 1000 chars + 200 overlap"]
         PARSERS --> CHUNKER
     end
@@ -230,11 +229,11 @@ flowchart LR
         FILES["documents/<br/>├── security/<br/>├── development/<br/>├── ctf/<br/>└── general/"]
     end
 
-    subgraph PARSE["Parse (12 formats)"]
+    subgraph PARSE["Parse (20 formats)"]
         MD["Markdown"]
         PDF["PDF<br/>(PyMuPDF)"]
         OFFICE["DOCX | XLSX<br/>PPTX | CSV"]
-        CODE["PY | JSON<br/>IPYNB"]
+        CODE["PY | C | H | CPP | JS | JSX<br/>TS | TSX | JSON | XML | IPYNB"]
     end
 
     subgraph CHUNK["Chunk"]
@@ -297,35 +296,33 @@ flowchart LR
 - Python 3.11+
 - Claude Code CLI
 - ~200MB disk for model cache (auto-downloaded on first run)
-- *Optional:* NVIDIA GPU + CUDA for [accelerated embeddings](#gpu-accelerated-embeddings-optional) (`pip install knowledge-rag[gpu]`)
+- *Optional:* NVIDIA GPU + CUDA for accelerated embeddings (`pip install knowledge-rag[gpu]` + `models.embedding.gpu: true` in config)
 
-### Quick Start (3 steps)
+### Install Methods
 
-**Step 1: Install**
+Pick one — all produce the same running server.
+
+#### Option A: NPX (fastest)
+
+Requires Node.js 16+. Handles Python venv, pip install, and version upgrades automatically.
 
 ```bash
-# Option A: One-line installer (recommended)
-# Linux/macOS:
-curl -fsSL https://raw.githubusercontent.com/lyonzin/knowledge-rag/master/install.sh | bash
-# Windows (PowerShell):
-irm https://raw.githubusercontent.com/lyonzin/knowledge-rag/master/install.ps1 | iex
-
-# Option B: pip install (manual)
-mkdir ~/knowledge-rag && cd ~/knowledge-rag
-python3 -m venv venv && source venv/bin/activate
-pip install knowledge-rag
-knowledge-rag init              # Exports config template, presets, creates documents/
-
-# Option C: Clone from source
-git clone https://github.com/lyonzin/knowledge-rag.git ~/knowledge-rag
-cd ~/knowledge-rag
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+claude mcp add knowledge-rag -s user -- npx -y knowledge-rag
 ```
 
-> **Windows users**: Use `python` instead of `python3`, `venv\Scripts\activate` instead of `source venv/bin/activate`.
+That's it. On first run, `npx` creates a venv at `~/.knowledge-rag/`, installs the PyPI package, and starts the MCP server. Subsequent runs reuse the cached venv.
 
-**Step 2: Configure Claude Code**
+#### Option B: One-line installer
+
+```bash
+# Linux/macOS:
+curl -fsSL https://raw.githubusercontent.com/lyonzin/knowledge-rag/master/install.sh | bash
+
+# Windows (PowerShell):
+irm https://raw.githubusercontent.com/lyonzin/knowledge-rag/master/install.ps1 | iex
+```
+
+Then configure Claude Code:
 
 ```bash
 claude mcp add knowledge-rag -s user -- ~/knowledge-rag/venv/bin/python -m mcp_server.server
@@ -333,7 +330,54 @@ claude mcp add knowledge-rag -s user -- ~/knowledge-rag/venv/bin/python -m mcp_s
 
 > **Windows**: `claude mcp add knowledge-rag -s user -- %USERPROFILE%\knowledge-rag\venv\Scripts\python.exe -m mcp_server.server`
 
-The server auto-detects the project directory from the venv location. No `cd` wrapper or `cwd` field needed.
+#### Option C: pip install
+
+```bash
+mkdir ~/knowledge-rag && cd ~/knowledge-rag
+python3 -m venv venv && source venv/bin/activate
+pip install knowledge-rag
+knowledge-rag init              # Exports config template, presets, creates documents/
+```
+
+Then configure Claude Code:
+
+```bash
+claude mcp add knowledge-rag -s user -- ~/knowledge-rag/venv/bin/python -m mcp_server.server
+```
+
+> **Windows users**: Use `python` instead of `python3`, `venv\Scripts\activate` instead of `source venv/bin/activate`.
+> **Windows path**: `claude mcp add knowledge-rag -s user -- %USERPROFILE%\knowledge-rag\venv\Scripts\python.exe -m mcp_server.server`
+
+#### Option D: Clone from source
+
+```bash
+git clone https://github.com/lyonzin/knowledge-rag.git ~/knowledge-rag
+cd ~/knowledge-rag
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Then configure Claude Code:
+
+```bash
+claude mcp add knowledge-rag -s user -- ~/knowledge-rag/venv/bin/python -m mcp_server.server
+```
+
+#### Option E: Docker
+
+```bash
+docker pull ghcr.io/lyonzin/knowledge-rag:latest
+```
+
+```bash
+claude mcp add knowledge-rag -s user -- \
+  docker run -i --rm \
+  -v ~/knowledge-rag/documents:/app/documents \
+  -v ~/knowledge-rag/data:/app/data \
+  ghcr.io/lyonzin/knowledge-rag:latest
+```
+
+Models are pre-downloaded in the image — no first-run delay.
 
 <details>
 <summary>Alternative: manual JSON config</summary>
@@ -366,10 +410,9 @@ Add to `~/.claude.json`:
 > Replace `YOUR_USER` with your username, or use the full path from `echo $HOME`.
 </details>
 
-**Step 3: Restart Claude Code**
+### Verify
 
 ```bash
-# Verify the server is connected
 claude mcp list
 ```
 
@@ -729,7 +772,7 @@ models:
     dimensions: 384
     gpu: false                         # Set true + pip install knowledge-rag[gpu]
   reranker:
-    enabled: true                      # Set false on low-resource machines
+    enabled: true                      # Falls back to RRF if model is unavailable
     model: "Xenova/ms-marco-MiniLM-L-6-v2"
     top_k_multiplier: 3               # Candidates fetched before reranking
 
@@ -816,6 +859,8 @@ For `.md` files, chunking splits at `##` and `###` header boundaries first. Sect
 | `models.reranker.model` | `Xenova/ms-marco-MiniLM-L-6-v2` | Reranker model |
 | `models.reranker.top_k_multiplier` | 3 | Fetch N*multiplier candidates for reranking |
 
+If the reranker model is not available locally and the machine cannot download it, search now falls back to the RRF order from hybrid semantic+BM25 retrieval. This keeps `search_knowledge` available offline, but result ordering may be less precise for ambiguous queries until the reranker model is cached.
+
 **Embedding model options** (fastest → most accurate):
 - `BAAI/bge-small-en-v1.5` — 384D, ~33MB (default)
 - `BAAI/bge-base-en-v1.5` — 768D, ~130MB
@@ -895,7 +940,7 @@ knowledge-rag/
 ├── mcp_server/
 │   ├── __init__.py          # Stdout protection + version
 │   ├── config.py            # YAML config loader + defaults
-│   ├── ingestion.py         # 12 parsers, chunking, metadata extraction
+│   ├── ingestion.py         # 20 parsers, chunking, metadata extraction
 │   └── server.py            # MCP server, ChromaDB, BM25, reranker, 12 tools
 ├── config.example.yaml      # Documented config template (copy to config.yaml)
 ├── config.yaml              # Your active configuration (git-ignored)
@@ -946,6 +991,31 @@ rm -rf models_cache
 # Then restart the MCP server
 ```
 
+### Reranker model download fails
+
+The reranker is lazy-loaded on the first query. If the model is not cached and the machine is offline, search continues without reranking and uses the RRF order from hybrid retrieval. To keep reranking enabled offline, run one query while online or pre-populate `models_cache/` on the target machine.
+
+You can still disable reranking explicitly in `config.yaml`:
+
+```yaml
+models:
+  reranker:
+    enabled: false
+```
+
+Disabling reranking reduces memory use and avoids first-query model loading. The tradeoff is lower ranking precision, especially when several chunks match the same terms but only one is the best answer.
+
+### ChromaDB index crashes on startup
+
+Native ChromaDB failures can terminate Python before normal exception handling runs. Startup now probes ChromaDB in a child process before initializing the MCP server. If the probe crashes, the active `chroma_db/` and `index_metadata.json` are moved to `data/backups/auto-repair-*`, and the next startup can rebuild a clean index.
+
+The same guarded behavior is available through either console script:
+
+```bash
+knowledge-rag
+knowledge-rag-guarded
+```
+
 ### Index is empty
 
 ```bash
@@ -976,7 +1046,7 @@ pip install --upgrade knowledge-rag
 
 ### Slow first query
 
-The cross-encoder reranker model is lazy-loaded on the first query. This adds a one-time ~2-3 second delay for model download and loading. Subsequent queries are fast.
+The cross-encoder reranker model is lazy-loaded on the first query. This adds a one-time ~2-3 second delay for model download and loading. Subsequent queries are fast. If the model cannot be loaded, search falls back to RRF ordering and does not retry loading the reranker until the server restarts.
 
 ### Memory usage
 
@@ -985,6 +1055,27 @@ With ~200 documents, expect ~300-500MB RAM. The embedding model (~50MB) and rera
 ---
 
 ## Changelog
+
+### Unreleased
+
+- **FIX**: Startup preflight probes ChromaDB in a child process and moves crashing persistent indexes to `data/backups/auto-repair-*` before MCP initialization.
+- **FIX**: Reranker load failures now fall back to RRF ordering instead of failing `search_knowledge` on offline machines.
+- **FIX**: Virtualenv project-root detection now handles Python symlinks that resolve to the system interpreter.
+- **NEW**: `knowledge-rag-guarded` console script kept as an explicit guarded startup alias.
+
+### v3.6.2 (2026-04-23)
+
+- **INFRA**: NPM provenance attestation (SLSA supply chain security), full README on npm page
+- **DOCS**: Reorganize Installation section — add NPX and Docker install methods, update What's New to v3.6.0
+
+### v3.6.0 (2026-04-23)
+
+- **NEW**: Multi-language code parsing — C (`.c`), C++ (`.cpp`/`.h`), JavaScript (`.js`/`.jsx`), TypeScript (`.ts`/`.tsx`) with per-language function/class/import extraction
+- **NEW**: XML parser (`.xml`) — root element and namespace metadata extraction
+- **NEW**: All 8 new formats default enabled — no config change needed
+- **NEW**: NPM wrapper (`npx knowledge-rag`) + Docker image (`ghcr.io/lyonzin/knowledge-rag`)
+- **NEW**: Automated release pipeline — PyPI (Trusted Publishing), NPM, Docker GHCR
+- **IMPROVED**: Code parser reports correct `language` metadata per file type (was hardcoded to `"python"` for all code files)
 
 ### v3.5.2 (2026-04-16)
 
@@ -1000,7 +1091,7 @@ With ~200 documents, expect ~300-500MB RAM. The embedding model (~50MB) and rera
 ### v3.5.0 (2026-04-16)
 
 - **NEW**: Optional GPU acceleration for ONNX embeddings — `pip install knowledge-rag[gpu]` + `models.embedding.gpu: true` in config. 5-10x faster indexing on NVIDIA GPUs with automatic CPU fallback.
-- **DOCS**: Supported formats table added to README (12 formats)
+- **DOCS**: Supported formats table added to README (20 formats)
 
 ### v3.4.3 (2026-04-16)
 

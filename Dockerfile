@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 LABEL maintainer="Lyon. <lyonzin@users.noreply.github.com>"
-LABEL description="Local RAG System for Claude Code — Hybrid search + Cross-encoder Reranking + 12 MCP Tools"
+LABEL description="Local RAG System for Claude Code — Hybrid search + Cross-encoder Reranking + 12 MCP Tools + 20 Format Parsers"
 LABEL org.opencontainers.image.source="https://github.com/lyonzin/knowledge-rag"
 
 WORKDIR /app
