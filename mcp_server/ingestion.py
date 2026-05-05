@@ -1,7 +1,9 @@
 """Document Ingestion System for Knowledge RAG
 
 Multi-format document parsing, chunking, and metadata extraction.
-Supports: MD, PDF, TXT, PY, C, H, CPP, JS, JSX, TS, TSX, JSON, XML, DOCX, XLSX, PPTX, CSV, IPYNB, MQH, MQ4
+Supports: MD, PDF, TXT, PY, GO, TS, JS, YAML, YML, JSON, CUE, PROTO, REGO,
+          SQL, SH, JQ, KT, HUJSON, DOCX, XLSX, PPTX, CSV, IPYNB, MQH, MQ4
+          + extensionless files (Dockerfile, Makefile, Tiltfile)
 """
 
 import fnmatch
@@ -176,15 +178,23 @@ class DocumentParser:
             ".txt": self._parse_text,
             ".pdf": self._parse_pdf,
             ".py": self._parse_code,
-            ".c": self._parse_code,
-            ".h": self._parse_code,
-            ".cpp": self._parse_code,
-            ".js": self._parse_code,
-            ".jsx": self._parse_code,
-            ".ts": self._parse_code,
-            ".tsx": self._parse_code,
+<<<<<<< Updated upstream
+            ".go": self._parse_code_generic,
+            ".ts": self._parse_code_generic,
+            ".js": self._parse_code_generic,
+            ".jsx": self._parse_code_generic,
+            ".tsx": self._parse_code_generic,
+            ".yaml": self._parse_yaml,
+            ".yml": self._parse_yaml,
             ".json": self._parse_json,
-            ".xml": self._parse_xml,
+            ".hujson": self._parse_json,
+            ".cue": self._parse_code_generic,
+            ".proto": self._parse_proto,
+            ".rego": self._parse_code_generic,
+            ".kt": self._parse_code_generic,
+            ".sql": self._parse_sql,
+            ".sh": self._parse_shell,
+            ".jq": self._parse_shell,
             ".docx": self._parse_docx,
             ".xlsx": self._parse_xlsx,
             ".pptx": self._parse_pptx,
@@ -192,6 +202,9 @@ class DocumentParser:
             ".ipynb": self._parse_ipynb,
             ".mqh": self._parse_code,
             ".mq4": self._parse_code,
+            "Dockerfile": self._parse_text,
+            "Makefile": self._parse_text,
+            "Tiltfile": self._parse_code_generic,
         }
 
     def parse_file(self, filepath: Path) -> Optional[Document]:
@@ -202,14 +215,21 @@ class DocumentParser:
             raise FileNotFoundError(f"File not found: {filepath}")
 
         suffix = filepath.suffix.lower()
-        if suffix not in self._parsers:
+        name = filepath.name
+
+        # Check extension first, then fall back to filename for extensionless files
+        if suffix in self._parsers:
+            key = suffix
+        elif name in self._parsers:
+            key = name
+        else:
             raise ValueError(f"Unsupported format: {suffix}")
 
         # Generate unique ID
         doc_id = self._generate_id(filepath)
 
         # Parse content and metadata
-        content, metadata = self._parsers[suffix](filepath)
+        content, metadata = self._parsers[key](filepath)
 
         if not content or not content.strip():
             print(f"[WARN] Skipping empty file: {filepath}")
@@ -289,7 +309,9 @@ class DocumentParser:
 
             for fname in files:
                 filepath = Path(root) / fname
-                if filepath.suffix.lower() not in supported:
+                suffix = filepath.suffix.lower()
+                # Check extension first, then filename for extensionless files
+                if suffix not in supported and fname not in supported:
                     continue
                 if exclude and self._should_exclude(filepath, directory, exclude):
                     continue
@@ -442,6 +464,130 @@ class DocumentParser:
         # Extract namespace declarations
         ns_matches = re.findall(r'xmlns(?::(\w+))?\s*=\s*["\']([^"\']+)["\']', content)
         metadata["namespaces"] = [{"prefix": prefix or "default", "uri": uri} for prefix, uri in ns_matches]
+
+        return content, metadata
+
+    def _parse_code_generic(self, filepath: Path) -> tuple[str, Dict]:
+        """Parse code files (Go, TypeScript, JS, CUE, Rego, Kotlin, etc.)"""
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+        suffix = filepath.suffix.lower()
+        lang_map = {
+            ".go": "go",
+            ".ts": "typescript",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".tsx": "typescript",
+            ".cue": "cue",
+            ".rego": "rego",
+            ".kt": "kotlin",
+            "Tiltfile": "starlark",
+        }
+        language = lang_map.get(suffix, lang_map.get(filepath.name, "unknown"))
+
+        metadata = {
+            "type": "code",
+            "language": language,
+            "title": filepath.stem,
+            "file_size": filepath.stat().st_size,
+            "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
+            "functions": [],
+            "classes": [],
+            "imports": [],
+        }
+
+        # Language-agnostic: extract function and class definitions
+        func_pattern = r"^(?:func|function|def|class|const\s+\w+\s*=\s*(?:async\s+)?(?:function|\())\s+(\w+)"
+        metadata["functions"] = re.findall(func_pattern, content, re.MULTILINE)[:50]
+
+        class_pattern = r"^(?:type\s+)?(\w+)\s+(?:struct|interface|class|enum)\b"
+        metadata["classes"] = re.findall(class_pattern, content, re.MULTILINE)[:50]
+
+        # Extract import statements (language-agnostic)
+        import_lines = []
+        for line in content.split("\n")[:100]:
+            line = line.strip()
+            if line.startswith(("import ", "import(", "from ", "require(", "package ")) or \
+               re.match(r'^(import|require|include)\b', line):
+                import_lines.append(line)
+        metadata["imports"] = import_lines[:20]
+
+        return content, metadata
+
+    def _parse_yaml(self, filepath: Path) -> tuple[str, Dict]:
+        """Parse YAML files (K8s manifests, configs, etc.)"""
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+        metadata = {
+            "type": "yaml",
+            "title": filepath.stem,
+            "file_size": filepath.stat().st_size,
+            "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
+            "line_count": content.count("\n") + 1,
+            "k8s_kind": None,
+            "k8s_api_version": None,
+            "k8s_name": None,
+        }
+
+        # Extract K8s metadata if present
+        for line in content.split("\n")[:30]:
+            stripped = line.strip()
+            if stripped.startswith("kind:"):
+                metadata["k8s_kind"] = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("apiVersion:"):
+                metadata["k8s_api_version"] = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("name:") and metadata.get("k8s_name") is None:
+                metadata["k8s_name"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+
+        return content, metadata
+
+    def _parse_proto(self, filepath: Path) -> tuple[str, Dict]:
+        """Parse Protocol Buffer definition files"""
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+        metadata = {
+            "type": "protobuf",
+            "title": filepath.stem,
+            "file_size": filepath.stat().st_size,
+            "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
+            "services": [],
+            "messages": [],
+            "rpcs": [],
+        }
+
+        metadata["services"] = re.findall(r"service\s+(\w+)", content)
+        metadata["messages"] = re.findall(r"message\s+(\w+)", content)
+        metadata["rpcs"] = re.findall(r"rpc\s+(\w+)", content)
+
+        return content, metadata
+
+    def _parse_sql(self, filepath: Path) -> tuple[str, Dict]:
+        """Parse SQL files"""
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+        metadata = {
+            "type": "sql",
+            "title": filepath.stem,
+            "file_size": filepath.stat().st_size,
+            "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
+            "tables": [],
+            "statements": [],
+        }
+
+        metadata["tables"] = re.findall(r"(?:CREATE\s+TABLE|ALTER\s+TABLE|FROM|JOIN|INTO)\s+(\w+)", content, re.IGNORECASE)
+        metadata["statements"] = re.findall(r"(CREATE|ALTER|DROP|SELECT|INSERT|UPDATE|DELETE)\b", content, re.IGNORECASE)
+
+        return content, metadata
+
+    def _parse_shell(self, filepath: Path) -> tuple[str, Dict]:
+        """Parse shell scripts and jq filters"""
+        content = filepath.read_text(encoding="utf-8", errors="ignore")
+        metadata = {
+            "type": "shell",
+            "title": filepath.stem,
+            "file_size": filepath.stat().st_size,
+            "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
+            "functions": [],
+            "line_count": content.count("\n") + 1,
+        }
+
+        metadata["functions"] = re.findall(r"^(?:function\s+)?(\w+)\s*\(\)", content, re.MULTILINE)
 
         return content, metadata
 
