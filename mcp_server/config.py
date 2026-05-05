@@ -16,28 +16,12 @@ import yaml
 _source_dir = Path(__file__).parent.parent
 
 
-_SUPPORTED_SUFFIXES = frozenset(
-    [
-        ".md",
-        ".txt",
-        ".pdf",
-        ".py",
-        ".c",
-        ".h",
-        ".cpp",
-        ".js",
-        ".jsx",
-        ".ts",
-        ".tsx",
-        ".json",
-        ".xml",
-        ".docx",
-        ".xlsx",
-        ".pptx",
-        ".csv",
-        ".ipynb",
-    ]
-)
+_SUPPORTED_SUFFIXES = frozenset([
+    ".md", ".txt", ".pdf", ".py", ".go", ".ts", ".js", ".jsx", ".tsx",
+    ".yaml", ".yml", ".json", ".hujson", ".cue", ".proto", ".rego",
+    ".kt", ".sql", ".sh", ".jq",
+    ".docx", ".xlsx", ".pptx", ".csv", ".ipynb",
+])
 
 
 def _has_documents(path: Path) -> bool:

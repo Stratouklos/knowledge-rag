@@ -49,6 +49,12 @@ documents/README-CATEGORIES.md
 Thumbs.db
 desktop.ini
 
+# Package manager lock (uv)
+uv.lock
+
+# Editor / tool config
+opencode.json
+
 # IDE
 .vscode/
 .idea/
