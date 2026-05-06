@@ -178,7 +178,6 @@ class DocumentParser:
             ".txt": self._parse_text,
             ".pdf": self._parse_pdf,
             ".py": self._parse_code,
-<<<<<<< Updated upstream
             ".go": self._parse_code_generic,
             ".ts": self._parse_code_generic,
             ".js": self._parse_code_generic,
