@@ -84,6 +84,24 @@ from .security import (
     validate_path_within,
 )
 
+
+# Window over which fuzzy-equivalent chunks collapse. Source material that
+# restates the same bullet list with different surrounding prose is the main
+# target — 500 chars covers a typical bullet block + leading sentence.
+_FUZZY_HASH_WINDOW = 500
+
+
+def _fuzzy_chunk_hash(content: str) -> str:
+    """Hash a normalized prefix of ``content`` for near-duplicate detection.
+
+    Normalization: case-fold, collapse all whitespace to single spaces, take
+    the first ``_FUZZY_HASH_WINDOW`` chars. Two chunks that differ only in
+    whitespace, capitalization, or trailing tail produce the same hash.
+    """
+    normalized = re.sub(r"\s+", " ", content.casefold()).strip()
+    return hashlib.sha256(normalized[:_FUZZY_HASH_WINDOW].encode("utf-8")).hexdigest()[:20]
+
+
 # =============================================================================
 # QUERY CACHE
 # =============================================================================
@@ -1202,6 +1220,15 @@ class KnowledgeOrchestrator:
         # Reverse lookup: resolved source path → doc_id (for O(1) adjacent chunk expansion)
         self._source_to_docid: Dict[str, str] = self._build_source_lookup()
 
+        # Chunk dedup tracking. Two layers:
+        #   _chunk_hashes:       exact SHA over raw content (catches identical chunks)
+        #   _chunk_fuzzy_hashes: SHA over case-folded, whitespace-normalized first 500
+        #                        chars (catches near-duplicates from repeated source
+        #                        material — e.g. AI-generated docs with restated bullets)
+        self._chunk_hashes: Dict[str, str]
+        self._chunk_fuzzy_hashes: Dict[str, str]
+        self._chunk_hashes, self._chunk_fuzzy_hashes = self._build_dedup_index()
+
         # Migration: deferred — checked in main() after full init
         self._needs_rebuild = False
 
@@ -1800,11 +1827,16 @@ class KnowledgeOrchestrator:
 
         for chunk in doc.chunks:
             content_hash = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()[:20]
-            if content_hash in seen_hashes:
+            fuzzy_hash = _fuzzy_chunk_hash(chunk.content)
+            chunk_id = f"{doc.id}_{chunk.index}"
+
+            if content_hash in self._chunk_hashes or fuzzy_hash in self._chunk_fuzzy_hashes:
                 dedup_skipped += 1
                 continue
-            seen_hashes.add(content_hash)
-            unique_ids.append(f"{doc.id}_{chunk.index}")
+
+            self._chunk_hashes[content_hash] = chunk_id
+            self._chunk_fuzzy_hashes[fuzzy_hash] = chunk_id
+            unique_ids.append(chunk_id)
             unique_docs.append(chunk.content)
             unique_metas.append(
                 {
@@ -1816,6 +1848,7 @@ class KnowledgeOrchestrator:
                     "chunk_index": chunk.index,
                     "keywords": ",".join(doc.keywords[:10]),
                     "content_hash": content_hash,
+                    "fuzzy_hash": fuzzy_hash,
                     **chunk.metadata,
                 }
             )
@@ -1879,13 +1912,46 @@ class KnowledgeOrchestrator:
             results = target.get(where={"doc_id": doc_id}, include=[])
 
             if results["ids"]:
-                target.delete(ids=results["ids"])
+                for meta in results["metadatas"]:
+                    content_hash = meta.get("content_hash", "")
+                    if content_hash and content_hash in self._chunk_hashes:
+                        del self._chunk_hashes[content_hash]
+                    fuzzy_hash = meta.get("fuzzy_hash", "")
+                    if fuzzy_hash and fuzzy_hash in self._chunk_fuzzy_hashes:
+                        del self._chunk_fuzzy_hashes[fuzzy_hash]
+
+                self.collection.delete(ids=results["ids"])
                 self._bm25_initialized = False
                 return len(results["ids"])
         except Exception as e:
             print(f"[WARN] Failed to remove chunks for doc {doc_id}: {e}")
 
         return 0
+
+    def _build_dedup_index(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Build (exact, fuzzy) deduplication indexes from existing ChromaDB data.
+
+        Backfills fuzzy_hash for legacy chunks that predate the fuzzy-dedup field.
+        """
+        exact: Dict[str, str] = {}
+        fuzzy: Dict[str, str] = {}
+        try:
+            count = self.collection.count()
+            if count > 0:
+                all_data = self.collection.get(include=["metadatas", "documents"], limit=count)
+                docs = all_data.get("documents") or [None] * len(all_data["ids"])
+                for chunk_id, meta, content in zip(all_data["ids"], all_data["metadatas"], docs):
+                    content_hash = meta.get("content_hash", "")
+                    if content_hash:
+                        exact[content_hash] = chunk_id
+                    fuzzy_hash = meta.get("fuzzy_hash", "")
+                    if not fuzzy_hash and content:
+                        fuzzy_hash = _fuzzy_chunk_hash(content)
+                    if fuzzy_hash:
+                        fuzzy[fuzzy_hash] = chunk_id
+        except Exception as e:
+            print(f"[WARN] Failed to build dedup index: {e}")
+        return exact, fuzzy
 
     def start_reindex_background(
         self,
@@ -2332,6 +2398,8 @@ class KnowledgeOrchestrator:
         self._source_to_docid = {}
         self.bm25_index.clear()
         self._bm25_initialized = False
+        self._chunk_hashes = {}
+        self._chunk_fuzzy_hashes = {}
         self.query_cache.invalidate()
 
         stats = self.index_all(force=True)
