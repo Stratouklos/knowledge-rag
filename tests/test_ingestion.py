@@ -110,6 +110,71 @@ def test_chunk_overlap_fallback(parser, tmp_path):
     assert len(doc.chunks) >= 2  # Should split into multiple chunks
 
 
+def test_chunks_dont_start_or_end_mid_word(parser, tmp_path):
+    """Chunks must respect token boundaries — no fragments like 'ck device RPC'."""
+    # Long English-like prose without paragraph breaks; word lengths vary so that
+    # naive byte-based overlap is very likely to land mid-word.
+    sentence = (
+        "The block device RPC service exposes a control plane for the "
+        "kustomize subsystem in infra-new and orchestrates fanout across "
+        "many regional shards including production failover paths. "
+    )
+    content = sentence * 30  # ~6kB, forces multi-chunk split
+    f = tmp_path / "long.txt"
+    f.write_text(content, encoding="utf-8")
+    doc = parser.parse_file(f)
+    assert len(doc.chunks) >= 2, "Expected multiple chunks for long text"
+
+    for c in doc.chunks:
+        text = c.content
+        # Skip the first chunk — it always starts at offset 0.
+        if c.index > 0:
+            first_word = text.split(maxsplit=1)[0] if text.split() else ""
+            assert first_word, f"chunk {c.index} empty after split"
+            # First word must appear in the source corpus as a real token.
+            # If chunking sliced mid-word, first_word would be a fragment.
+            assert (
+                f" {first_word} " in content
+                or content.startswith(first_word + " ")
+            ), f"chunk {c.index} starts mid-word: {first_word!r}"
+
+        # Last word check (excluding final chunk, which may be tail).
+        if c.index < len(doc.chunks) - 1:
+            last_word = text.rsplit(maxsplit=1)[-1] if text.split() else ""
+            # Strip trailing punctuation for the membership check.
+            last_word_stripped = last_word.rstrip(".,;:!?\"'")
+            assert (
+                f" {last_word_stripped} " in content
+                or content.endswith(" " + last_word_stripped)
+                or f" {last_word_stripped}." in content
+            ), f"chunk {c.index} ends mid-word: {last_word!r}"
+
+
+def test_chunks_break_on_sentence_punctuation(parser, tmp_path):
+    """Splitter prefers sentence boundaries (. ! ?) over arbitrary cuts."""
+    # Three sentences ending with each terminator.
+    paragraph = (
+        "First we initialize the alpha subsystem with ten distinct shards. "
+        "Then we route traffic through the secondary gateway! "
+        "Are subsequent retries idempotent under network partition? "
+    )
+    content = paragraph * 20
+    f = tmp_path / "punct.txt"
+    f.write_text(content, encoding="utf-8")
+    doc = parser.parse_file(f)
+    assert len(doc.chunks) >= 2
+
+    # Most non-final chunks should end with sentence-terminating punctuation.
+    sentence_endings = 0
+    for c in doc.chunks[:-1]:
+        if c.content.rstrip().endswith((".", "!", "?")):
+            sentence_endings += 1
+    # Allow a little slack — at least 70% should land on a sentence boundary.
+    assert sentence_endings / max(1, len(doc.chunks) - 1) >= 0.7, (
+        f"only {sentence_endings}/{len(doc.chunks) - 1} non-final chunks end on sentence boundary"
+    )
+
+
 # ── DOCX/XLSX/PPTX ──
 
 

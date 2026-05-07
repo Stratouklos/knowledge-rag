@@ -797,9 +797,18 @@ class DocumentParser:
     # =========================================================================
 
     def _chunk_text(self, text: str, metadata: Dict) -> List[Chunk]:
-        """Split text into overlapping chunks for embedding"""
+        """Split text into overlapping chunks for embedding.
+
+        Boundary policy: end snaps to the latest paragraph/sentence/word boundary
+        within the last 20% of the target window; the next chunk's start snaps
+        forward to the next word boundary so chunks never begin mid-token.
+        """
         if not text:
             return []
+
+        # Sentence terminators are followed by whitespace in well-formed prose.
+        # Order matters: paragraph > sentence > word.
+        break_patterns = ["\n\n", "\n", ". ", "! ", "? ", "; ", " "]
 
         chunks = []
         text_len = len(text)
@@ -807,52 +816,72 @@ class DocumentParser:
         index = 0
 
         while start < text_len:
-            # Calculate end position
             end = min(start + self.chunk_size, text_len)
 
-            # Try to break at sentence/paragraph boundary
             if end < text_len:
-                # Look for natural break points within last 20% of chunk
                 break_zone_start = start + int(self.chunk_size * 0.8)
                 break_zone = text[break_zone_start:end]
 
-                # Priority: paragraph > sentence > word
-                for pattern in ["\n\n", "\n", ". ", " "]:
+                for pattern in break_patterns:
                     last_break = break_zone.rfind(pattern)
                     if last_break != -1:
                         end = break_zone_start + last_break + len(pattern)
                         break
 
-            # Ensure we always make forward progress
             if end <= start:
                 end = start + 1
 
             chunk_content = text[start:end].strip()
 
             if chunk_content:
-                chunk = Chunk(
-                    content=chunk_content,
-                    index=index,
-                    start_char=start,
-                    end_char=end,
-                    metadata={
-                        "title": metadata.get("title", ""),
-                        "type": metadata.get("type", ""),
-                    },
+                chunks.append(
+                    Chunk(
+                        content=chunk_content,
+                        index=index,
+                        start_char=start,
+                        end_char=end,
+                        metadata={
+                            "title": metadata.get("title", ""),
+                            "type": metadata.get("type", ""),
+                        },
+                    )
                 )
-                chunks.append(chunk)
                 index += 1
 
-            # Move start position with overlap
+            # Advance start with overlap, snapping forward to the next word
+            # boundary so the next chunk doesn't begin mid-token.
             new_start = end - self.chunk_overlap
-
-            # Ensure forward progress - if overlap would cause backtracking to same position or before, just advance
             if new_start <= start:
                 start = end
+            elif new_start >= text_len:
+                break
             else:
-                start = new_start
+                start = self._snap_to_word_boundary(text, new_start, end)
 
         return chunks
+
+    @staticmethod
+    def _snap_to_word_boundary(text: str, pos: int, hard_max: int) -> int:
+        """Move ``pos`` forward to the character after the next whitespace.
+
+        Bounded by ``hard_max`` so a token longer than the search window
+        (URLs, hashes) doesn't push us all the way to the next chunk's end.
+        Returns ``pos`` unchanged if it's already at a word boundary.
+        """
+        if pos <= 0 or pos >= len(text):
+            return pos
+        # Already at a boundary: previous char is whitespace or pos is start of token.
+        if text[pos - 1].isspace():
+            return pos
+        # Search forward for the next whitespace, capped at hard_max.
+        scan_end = min(hard_max, len(text))
+        i = pos
+        while i < scan_end and not text[i].isspace():
+            i += 1
+        # Skip the whitespace itself so we land on the next token's first char.
+        while i < scan_end and text[i].isspace():
+            i += 1
+        return i if i < scan_end else pos
 
     def _chunk_markdown(self, text: str, metadata: Dict) -> List[Chunk]:
         """
