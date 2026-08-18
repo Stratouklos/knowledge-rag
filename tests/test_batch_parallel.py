@@ -159,6 +159,8 @@ def _build_orchestrator_mocks() -> KnowledgeOrchestrator:
     orch = object.__new__(KnowledgeOrchestrator)
     orch.collection = MagicMock()
     orch.bm25_index = MagicMock()
+    orch._chunk_hashes = {}
+    orch._chunk_fuzzy_hashes = {}
     return orch
 
 
