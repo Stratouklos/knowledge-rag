@@ -178,7 +178,9 @@ class DocumentParser:
             ".txt": self._parse_text,
             ".pdf": self._parse_pdf,
             ".py": self._parse_code,
-<<<<<<< Updated upstream
+            ".c": self._parse_code,
+            ".h": self._parse_code,
+            ".cpp": self._parse_code,
             ".go": self._parse_code_generic,
             ".ts": self._parse_code_generic,
             ".js": self._parse_code_generic,
@@ -187,6 +189,7 @@ class DocumentParser:
             ".yaml": self._parse_yaml,
             ".yml": self._parse_yaml,
             ".json": self._parse_json,
+            ".xml": self._parse_xml,
             ".hujson": self._parse_json,
             ".cue": self._parse_code_generic,
             ".proto": self._parse_proto,
@@ -495,12 +498,26 @@ class DocumentParser:
             "imports": [],
         }
 
-        # Language-agnostic: extract function and class definitions
-        func_pattern = r"^(?:func|function|def|class|const\s+\w+\s*=\s*(?:async\s+)?(?:function|\())\s+(\w+)"
-        metadata["functions"] = re.findall(func_pattern, content, re.MULTILINE)[:50]
+        # Language-agnostic: extract function and class definitions.
+        # Handles optional export/async prefixes and both JS/TS (class Name)
+        # and Go (Name struct) declaration styles.
+        func_pattern = re.compile(
+            r"^(?:export\s+)?(?:async\s+)?(?:func|function|def)\s+(\w+)"
+            r"|^(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?(?:function|\()",
+            re.MULTILINE,
+        )
+        metadata["functions"] = [
+            g for g in func_pattern.findall(content) for g in g if g
+        ][:50]
 
-        class_pattern = r"^(?:type\s+)?(\w+)\s+(?:struct|interface|class|enum)\b"
-        metadata["classes"] = re.findall(class_pattern, content, re.MULTILINE)[:50]
+        class_pattern = re.compile(
+            r"^(?:export\s+)?(?:class|interface|enum)\s+(\w+)"
+            r"|^(?:type\s+)?(\w+)\s+(?:struct|interface)\b",
+            re.MULTILINE,
+        )
+        metadata["classes"] = [
+            g for g in class_pattern.findall(content) for g in g if g
+        ][:50]
 
         # Extract import statements (language-agnostic)
         import_lines = []
