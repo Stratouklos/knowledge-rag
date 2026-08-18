@@ -8,6 +8,14 @@ data/
 config.yaml
 
 # Personal documents (NEVER commit — user-populated content)
+# Local repo symlinks (environment-specific, never commit)
+documents/athena/
+documents/cloudnative-pg/
+documents/infra-new/
+documents/maki/
+documents/metis-staging/
+documents/xata-cnpg/
+documents/xatastor/
 documents/aar/
 documents/security/
 documents/logscale/

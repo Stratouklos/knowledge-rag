@@ -1,0 +1,458 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                                                                              ║
+# ║      KNOWLEDGE RAG — All Code Repos (maki, infra-new, xatastor,              ║
+# ║      cloudnative-pg, xata-cnpg, metis, athena)                               ║
+# ║                                                                              ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+paths:
+  documents_dir: "./documents"
+  data_dir: "./data"
+  models_cache_dir: "./models_cache"
+
+documents:
+  supported_formats:
+    # Upstream defaults
+    - .md        # Documentation, READMEs, playbooks, ADRs
+    - .txt       # Plain text notes
+    - .pdf       # Technical papers, specs
+    - .py        # Python scripts
+    - .c         # C source
+    - .h         # C/C++ headers
+    - .cpp       # C++ source
+    - .js        # JavaScript
+    - .jsx       # React JSX
+    - .ts        # TypeScript
+    - .tsx       # React TSX
+    - .json      # API schemas, configs, realm files
+    - .xml       # XML documents
+    - .docx      # Word documents
+    - .xlsx      # Excel spreadsheets
+    - .pptx      # PowerPoint presentations
+    - .csv       # CSV data
+    - .ipynb     # Jupyter notebooks
+    # Xata-repo additions
+    - .go        # Go source (maki services, kubectl plugin, tools)
+    - .yaml      # K8s manifests, Helm charts, Pulumi configs
+    - .yml       # GitHub Actions, CI configs
+    - .hujson    # Tailscale policy (Human JSON)
+    - .cue       # CUE policy definitions
+    - .proto     # Protocol Buffers (gRPC definitions)
+    - .rego      # OPA policies
+    - .kt        # Kotlin (Keycloak plugins)
+    - .sql       # SQL migrations
+    - .sh        # Shell scripts
+    - .jq        # JQ filters
+    - .rs        # Rust source (xatastor crates)
+    - .toml      # TOML configs (Cargo.toml, etc.)
+    - "Dockerfile"
+    - "Makefile"
+    - "Tiltfile"
+
+  exclude_patterns:
+    - ".git"
+    - "node_modules"
+    - "__pycache__"
+    - ".venv"
+    - "dist"
+    - "build"
+    - ".next"
+    - "gen"
+    - "protomocks"
+    - ".sops"
+    - ".DS_Store"
+    - "*.sum"
+    - "*.lock"
+    - "*.map"
+    - "*.rev"
+    - "*.pack"
+    - "*.idx"
+
+  chunking:
+    chunk_size: 1200
+    chunk_overlap: 250
+
+models:
+  embedding:
+    model: "BAAI/bge-small-en-v1.5"
+    dimensions: 384
+    gpu: false
+
+  reranker:
+    enabled: true
+    model: "Xenova/ms-marco-MiniLM-L-6-v2"
+    top_k_multiplier: 3
+
+search:
+  default_results: 5
+  max_results: 20
+  collection_name: "knowledge_base"
+
+category_mappings:
+  "maki/services": "maki-services"
+  "maki/internal": "maki-internal"
+  "maki/charts": "maki-helm"
+  "maki/kustomize": "maki-k8s"
+  "maki/proto": "maki-proto"
+  "maki/openapi": "maki-openapi"
+  "maki/cue": "maki-cue"
+  "maki/playbooks": "maki-playbooks"
+  "maki/e2e": "maki-e2e"
+  "maki/docs": "maki-docs"
+  "infra-new/pulumi": "pulumi"
+  "infra-new/kustomize": "infra-k8s"
+  "infra-new/cmd": "infra-tools"
+  "infra-new/openebs": "infra-openebs"
+  "infra-new/cue": "infra-cue"
+  "infra-new/scripts": "infra-scripts"
+  "infra-new/tailscale": "infra-tailscale"
+  "infra-new/.github": "infra-ci"
+  # ── athena ──
+  "athena/skills": "athena-skills"
+  "athena/hooks": "athena-hooks"
+  "athena/agents": "athena-agents"
+  "athena/pi-extensions": "athena-pi"
+  "athena/commands": "athena-commands"
+  # ── cloudnative-pg ──
+  "cloudnative-pg/api": "cnpg-api"
+  "cloudnative-pg/internal": "cnpg-internal"
+  "cloudnative-pg/pkg": "cnpg-pkg"
+  "cloudnative-pg/cmd": "cnpg-cmd"
+  "cloudnative-pg/config": "cnpg-config"
+  "cloudnative-pg/docs": "cnpg-docs"
+  # ── metis (staging output — generated docs) ──
+  "metis-staging/repos": "metis-docs"
+  "metis-staging/summaries": "metis-summaries"
+  # ── xata-cnpg ──
+  "xata-cnpg/api": "xcnpg-api"
+  "xata-cnpg/internal": "xcnpg-internal"
+  "xata-cnpg/pkg": "xcnpg-pkg"
+  "xata-cnpg/cmd": "xcnpg-cmd"
+  "xata-cnpg/config": "xcnpg-config"
+  "xata-cnpg/docs": "xcnpg-docs"
+  # ── xatastor ──
+  "xatastor/crates": "xatastor-crates"
+  "xatastor/services": "xatastor-services"
+  "xatastor/proto": "xatastor-proto"
+  "xatastor/playbooks": "xatastor-playbooks"
+  "xatastor/charts": "xatastor-helm"
+  "xatastor/docs": "xatastor-docs"
+  "xatastor/scripts": "xatastor-scripts"
+
+keyword_routes:
+  maki-services:
+    - auth service
+    - billing service
+    - clusters service
+    - projects service
+    - gateway service
+    - branch operator
+    - clusterpool operator
+    - scale to zero
+    - sql gateway
+    - postgres wire
+    - cnpg
+    - cloudnativepg
+
+  maki-internal:
+    - pgroll
+    - openfeature
+    - opa policy
+    - observability
+    - signoz
+    - pyroscope
+    - opentelemetry
+    - o11y
+    - idgen
+    - xvalidator
+
+  maki-helm:
+    - helm chart
+    - helm values
+    - helm template
+    - kubernetes deployment
+
+  maki-k8s:
+    - kustomize
+    - kubernetes manifest
+    - k8s overlay
+    - control plane
+    - data plane
+    - kustomization
+
+  maki-proto:
+    - protobuf
+    - grpc
+    - proto definition
+    - rpc
+
+  maki-openapi:
+    - openapi
+    - api spec
+    - swagger
+    - oapi-codegen
+
+  maki-playbooks:
+    - playbook
+    - runbook
+    - incident response
+    - postmortem
+    - on-call
+    - troubleshooting
+
+  pulumi:
+    - pulumi
+    - infrastructure as code
+    - iac
+    - eks
+    - vpc
+    - rds
+    - iam
+    - route53
+    - ecr
+    - s3 bucket
+    - gcp
+    - gke
+    - byoc
+    - cell
+    - karpenter
+    - cilium
+
+  infra-k8s:
+    - flux
+    - gitops
+    - oci artifact
+    - kustomize build
+    - reconciliation
+
+  infra-tools:
+    - kubectl plugin
+    - kubectl-xata
+    - locked
+    - restore
+
+  infra-tailscale:
+    - tailscale
+    - acl
+    - hujson
+    - exit node
+    - jump server
+
+  infra-ci:
+    - github actions
+    - workflow
+    - ci/cd
+    - dependabot
+
+  # ── athena ──
+  athena-skills:
+    - skill
+    - adr
+    - discovery
+    - retro
+    - retrospective
+    - implementation plan
+    - wrap phase
+    - start phase
+    - review phase
+    - grill me
+    - memsearch
+    - capture memory
+    - consolidate memory
+
+  athena-hooks:
+    - hook
+    - inject memory
+    - user prompt
+    - pre-commit hook
+
+  athena-agents:
+    - agent
+    - subagent
+    - general purpose
+    - estia
+    - claude code agent
+
+  athena-pi:
+    - pi extension
+    - tui
+    - pi agent
+    - keybindings
+
+  athena-commands:
+    - slash command
+    - custom command
+    - claude command
+
+  # ── cloudnative-pg ──
+  cnpg-api:
+    - cluster spec
+    - backup spec
+    - scheduled backup
+    - pooler spec
+    - postgres cluster
+    - cnpg api type
+
+  cnpg-internal:
+    - controller
+    - reconcile loop
+    - webhook handler
+    - instance manager
+    - postgres manager
+
+  cnpg-pkg:
+    - postgres configuration
+    - barman
+    - wal archive
+    - certs
+    - specs
+    - pod spec
+
+  cnpg-cmd:
+    - manager binary
+    - kubectl-cnpg
+    - kubectl plugin
+
+  cnpg-config:
+    - crd
+    - helm chart
+    - rbac
+    - certmanager
+    - olm
+    - operator lifecycle manager
+
+  cnpg-docs:
+    - cloudnativepg doc
+    - operator documentation
+    - postgres operator
+
+  # ── metis (staging output — generated docs) ──
+  metis-docs:
+    - generated doc
+    - repo documentation
+    - auto generated
+    - metis rag
+
+  metis-summaries:
+    - summary
+    - condensed
+    - overview
+
+  # ── xata-cnpg ──
+  xcnpg-api:
+    - xata cluster
+    - xata backup
+    - xata pooler
+
+  xcnpg-internal:
+    - xata controller
+    - xata reconcile
+    - xata webhook
+
+  xcnpg-pkg:
+    - xata postgres config
+    - xata barman
+    - xata specs
+
+  xcnpg-cmd:
+    - xata manager
+    - xata kubectl
+
+  xcnpg-config:
+    - xata crd
+    - xata helm
+    - xata olm
+
+  xcnpg-docs:
+    - xata cnpg doc
+    - xata operator doc
+
+  # ── xatastor ──
+  xatastor-crates:
+    - nvme codec
+    - zfs local
+    - xata metrics
+    - xata clock
+    - monoio
+    - local sync
+    - linux utils
+
+  xatastor-services:
+    - xatastor operator
+    - zfs of
+    - storage service
+
+  xatastor-proto:
+    - xatastor protobuf
+    - zfs protobuf
+    - storage proto
+
+  xatastor-playbooks:
+    - nvme playbook
+    - storage playbook
+    - rebuild metastore
+    - stale connection
+    - missing nvme
+
+  xatastor-helm:
+    - xatastor helm chart
+    - xatastor csi chart
+
+  xatastor-docs:
+    - storage architecture
+    - nvme documentation
+    - xatastor design
+    - zfs documentation
+
+  xatastor-scripts:
+    - storage ci
+    - deployment script
+
+query_expansions:
+  k8s: ["kubernetes", "k8s"]
+  kubernetes: ["kubernetes", "k8s"]
+  go: ["golang", "go"]
+  golang: ["golang", "go"]
+  ts: ["typescript", "ts"]
+  typescript: ["typescript", "ts"]
+  iac: ["infrastructure as code", "iac", "pulumi"]
+  pulumi: ["pulumi", "iac", "infrastructure as code"]
+  eks: ["elastic kubernetes service", "eks", "aws kubernetes"]
+  gke: ["google kubernetes engine", "gke", "gcp kubernetes"]
+  cnpg: ["cloudnativepg", "cnpg", "postgres operator"]
+  pgroll: ["pgroll", "schema migration", "postgres migration"]
+  opa: ["open policy agent", "opa", "rego"]
+  grpc: ["grpc", "protobuf", "protocol buffers"]
+  helm: ["helm", "helm chart", "kubernetes package"]
+  flux: ["flux", "flux cd", "gitops"]
+  kustomize: ["kustomize", "kubernetes overlay", "kustomization"]
+  byoc: ["bring your own cloud", "byoc"]
+  otel: ["opentelemetry", "otel", "observability"]
+  sops: ["sops", "secrets encryption", "mozilla sops"]
+  cilium: ["cilium", "cni", "ebpf"]
+  karpenter: ["karpenter", "node autoscaling", "k8s autoscaler"]
+  openebs: ["openebs", "mayastor", "csi storage"]
+  pg: ["postgresql", "postgres", "pg"]
+  postgres: ["postgresql", "postgres", "pg"]
+  # ── athena ──
+  adr: ["architecture decision record", "adr", "decision record"]
+  claude: ["claude code", "claude", "anthropic"]
+  pi: ["pi agent", "pi", "coding agent"]
+  memsearch: ["memsearch", "memory search", "semantic memory"]
+  # ── cloudnative-pg ──
+  barman: ["barman", "wal archive", "backup tool"]
+  pooler: ["pgbouncer", "connection pooler", "pooler"]
+  wal: ["wal", "write ahead log", "wal archive"]
+  # ── metis ──
+  rag: ["retrieval augmented generation", "rag", "hybrid search"]
+  qdrant: ["qdrant", "vector database", "vector db"]
+  embedding: ["embedding", "vector embedding", "dense vector"]
+  llm: ["large language model", "llm", "language model"]
+  rrf: ["reciprocal rank fusion", "rrf", "rank fusion"]
+  # ── xata-cnpg ──
+  xcnpg: ["xata cnpg", "xcnpg", "xata postgres operator"]
+  # ── xatastor ──
+  nvme: ["nvme", "nvme-over-fabrics", "nvme-of"]
+  zfs: ["zfs", "zfs local", "zfs filesystem"]
+  xatastor: ["xatastor", "xata storage", "distributed storage"]
+  csi: ["container storage interface", "csi", "storage driver"]
