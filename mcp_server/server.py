@@ -1816,14 +1816,12 @@ class KnowledgeOrchestrator:
 
         return len(unique_ids), dedup_skipped
 
-    @staticmethod
-    def _dedup_chunks(doc: Document):
+    def _dedup_chunks(self, doc: Document):
         """Deduplicate chunks by content SHA256 prefix; build parallel id/doc/meta lists."""
         unique_ids = []
         unique_docs = []
         unique_metas = []
         dedup_skipped = 0
-        seen_hashes: set = set()
 
         for chunk in doc.chunks:
             content_hash = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()[:20]
